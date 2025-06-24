@@ -3,10 +3,13 @@ require('dotenv').config(); // Cargar variables desde .env
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
+const express = require('express'); // ✅ Express para mantener el bot activo
 
+// 📁 Base de datos local
 const adapter = new JSONFile('db.json');
 const db = new Low(adapter, { uploads: {} });
 
+// 🤖 Cliente Discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -16,6 +19,12 @@ const client = new Client({
   ],
   partials: [Partials.Channel]
 });
+
+// 🌐 Servidor web para UptimeRobot
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get('/', (_, res) => res.send('Bot funcionando.'));
+app.listen(PORT, () => console.log(`🌐 Servidor web activo en el puerto ${PORT}`));
 
 async function startBot() {
   await db.read();
@@ -35,7 +44,6 @@ async function startBot() {
     // ✅ Comando !replay-status
     if (message.content === '!replay-status' && message.channel.id === process.env.CANAL_ID) {
       const lastUpload = db.data.uploads[userId] ? new Date(db.data.uploads[userId]) : null;
-
       let replyText;
 
       if (!lastUpload) {
