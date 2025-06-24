@@ -1,15 +1,25 @@
 require('dotenv').config(); // Cargar variables desde .env
 
+const express = require('express');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
-const express = require('express'); // ✅ Express para mantener el bot activo
 
-// 📁 Base de datos local
 const adapter = new JSONFile('db.json');
 const db = new Low(adapter, { uploads: {} });
 
-// 🤖 Cliente Discord
+// Inicializa Express para mantener Render activo
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Bot is alive!');
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor Express en línea en http://localhost:${PORT}`);
+});
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -19,12 +29,6 @@ const client = new Client({
   ],
   partials: [Partials.Channel]
 });
-
-// 🌐 Servidor web para UptimeRobot
-const app = express();
-const PORT = process.env.PORT || 3000;
-app.get('/', (_, res) => res.send('Bot funcionando.'));
-app.listen(PORT, () => console.log(`🌐 Servidor web activo en el puerto ${PORT}`));
 
 async function startBot() {
   await db.read();
@@ -41,7 +45,6 @@ async function startBot() {
     const userId = message.author.id;
     const now = new Date();
 
-    // ✅ Comando !replay-status
     if (message.content === '!replay-status' && message.channel.id === process.env.CANAL_ID) {
       const lastUpload = db.data.uploads[userId] ? new Date(db.data.uploads[userId]) : null;
       let replyText;
@@ -76,7 +79,6 @@ async function startBot() {
       return;
     }
 
-    // 🔄 Comando !reset @usuario
     if (message.content.startsWith('!reset') && message.member?.permissions.has('Administrator')) {
       const mention = message.mentions.users.first();
       if (!mention) return;
@@ -94,7 +96,6 @@ async function startBot() {
       return;
     }
 
-    // 📥 Subida de replay
     if (message.channel.id === process.env.CANAL_ID) {
       const file = message.attachments.first();
       if (!file || !file.name.endsWith('.SC2Replay')) return;
