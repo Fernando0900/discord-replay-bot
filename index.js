@@ -162,7 +162,7 @@ async function startBot() {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
 
-  const ownerId = '360974094457503744';
+  const ownerId = '882268783958454272';
   const [action, targetId] = interaction.customId.split('_');
 
   if (interaction.user.id !== ownerId) {
