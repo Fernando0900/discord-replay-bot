@@ -159,24 +159,58 @@ async function startBot() {
   });
 
   // Manejar botón de revisión
-  client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
 
-    const ownerId = '360974094457503744';
-    const [action, targetId] = interaction.customId.split('_');
+  const ownerId = '360974094457503744';
+  const [action, targetId] = interaction.customId.split('_');
 
-    if (action === 'revisar' && interaction.user.id === ownerId) {
-      if (db.data.uploads[targetId]) {
-        db.data.uploads[targetId].revisado = true;
-        await db.write();
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply({ content: '❌ Solo Skros puede usar este botón.', ephemeral: true });
+  }
 
-        await interaction.update({
-          content: `✅ Replay de <@${targetId}> **revisado por Skros**.`,
-          components: []
-        });
-      }
+  if (action === 'revisar') {
+    if (db.data.uploads[targetId]) {
+      db.data.uploads[targetId].revisado = true;
+      await db.write();
+
+      await interaction.update({
+        content: `✅ Replay de <@${targetId}> **revisado por Skros**.`,
+        components: []
+      });
+
+      await interaction.followUp({
+        content: 'Has marcado este replay como **Revisado**.',
+        ephemeral: true
+      });
     }
-  });
+  }
+
+  if (action === 'ausente') {
+    if (db.data.uploads[targetId]) {
+      db.data.uploads[targetId].revisado = false; // sigue sin revisar
+      await db.write();
+
+      try {
+        const user = await client.users.fetch(targetId);
+        await user.send('📭 Tu replay fue marcado como **ausente**. No estuviste presente cuando se iba a revisar.');
+      } catch {
+        console.warn(`❗ No se pudo enviar DM a ${targetId}`);
+      }
+
+      await interaction.update({
+        content: `❌ Replay de <@${targetId}> **marcado como ausente por Skros**.`,
+        components: []
+      });
+
+      await interaction.followUp({
+        content: 'Has marcado este replay como **Ausente**.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
 
   client.login(process.env.DISCORD_TOKEN);
 }
