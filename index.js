@@ -95,9 +95,6 @@ async function startBot() {
       } catch {
         await message.reply({ content: `❗ No se pudo enviar DM a ${mention.tag}`, ephemeral: true });
       }
-
-      await message.reply({ content: `✅ Contador reseteado para ${mention.tag}.`, ephemeral: true });
-      return;
     }
 
     // Subida de replay
