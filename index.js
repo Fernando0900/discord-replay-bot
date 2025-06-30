@@ -1,7 +1,7 @@
 require('dotenv').config(); // Cargar variables desde .env
 
 const express = require('express');
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, PermissionsBitField } = require('discord.js');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
 
@@ -35,6 +35,8 @@ async function startBot() {
   db.data ||= { uploads: {} };
   await db.write();
 
+  const allowedChannels = process.env.CANAL_ID.split(',').map(id => id.trim());
+
   client.once('ready', () => {
     console.log(`✅ Bot conectado como ${client.user.tag}`);
   });
@@ -45,7 +47,7 @@ async function startBot() {
     const userId = message.author.id;
     const now = new Date();
 
-    if (message.content === '!replay-status' && message.channel.id === process.env.CANAL_ID) {
+    if (message.content === '!replay-status' && allowedChannels.includes(message.channel.id)) {
       const lastUpload = db.data.uploads[userId] ? new Date(db.data.uploads[userId]) : null;
       let replyText;
 
@@ -79,7 +81,7 @@ async function startBot() {
       return;
     }
 
-    if (message.content.startsWith('!replay-reset') && message.member?.permissions.has('Administrator')) {
+    if (message.content.startsWith('!replay-reset') && message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) {
       const mention = message.mentions.users.first();
       if (!mention) return;
 
@@ -96,7 +98,7 @@ async function startBot() {
       return;
     }
 
-    if (message.channel.id === process.env.CANAL_ID) {
+    if (allowedChannels.includes(message.channel.id)) {
       const file = message.attachments.first();
       if (!file || !file.name.endsWith('.SC2Replay')) return;
 
