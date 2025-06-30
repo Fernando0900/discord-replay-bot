@@ -95,7 +95,11 @@ async function startBot() {
       } catch {
         await message.reply({ content: `❗ No se pudo enviar DM a ${mention.tag}`, ephemeral: true });
       }
+
+      // ⬇️ Eliminar el mensaje del canal
+      await message.delete();
     }
+
 
     // Subida de replay
     if (message.channel.id === process.env.CANAL_ID) {
