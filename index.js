@@ -40,7 +40,7 @@ async function startBot() {
   });
 
   client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
+    if (message.author.bot || !message.guild || message.system) return;
     const userId = message.author.id;
     const now = new Date();
 
@@ -96,10 +96,9 @@ async function startBot() {
         await message.reply({ content: `❗ No se pudo enviar DM a ${mention.tag}`, ephemeral: true });
       }
 
-      // ⬇️ Eliminar el mensaje del canal
       await message.delete();
+      return;
     }
-
 
     // Subida de replay
     if (message.channel.id === process.env.CANAL_ID) {
@@ -132,29 +131,33 @@ async function startBot() {
           await message.reply({ content: msg, ephemeral: true });
         }
 
-      } else {
-        db.data.uploads[userId] = {
-          fecha: now.toISOString(),
-          revisado: false
-        };
-        await db.write();
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`revisar_${userId}`)
-            .setLabel('✅ Revisado')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId(`ausente_${userId}`)
-            .setLabel('❌ Ausente')
-            .setStyle(ButtonStyle.Danger)
-        );
-
-        await message.reply({
-          content: `🎮 Replay recibido de <@${userId}>. Esperando revisión.`,
-          components: [row]
-        });
+        return;
       }
+
+      // Se permite la subida
+      db.data.uploads[userId] = {
+        fecha: now.toISOString(),
+        revisado: false
+      };
+      await db.write();
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`revisar_${userId}`)
+          .setLabel('✅ Revisado')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`ausente_${userId}`)
+          .setLabel('❌ Ausente')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await message.reply({
+        content: `🎮 Replay recibido de <@${userId}>. Esperando revisión.`,
+        components: [row]
+      });
+
+      return; // 🔒 previene duplicación de botones
     }
   });
 
