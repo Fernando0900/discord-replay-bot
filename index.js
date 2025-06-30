@@ -144,11 +144,16 @@ async function startBot() {
 
         // Enviar mensaje con botón
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`revisar_${userId}`)
-            .setLabel('✅ Revisado')
-            .setStyle(ButtonStyle.Success)
-        );
+        new ButtonBuilder()
+          .setCustomId(`revisar_${userId}`)
+          .setLabel('✅ Revisado')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`ausente_${userId}`)
+          .setLabel('❌ Ausente')
+          .setStyle(ButtonStyle.Danger)
+      );
+
 
         await message.reply({
           content: `🎮 Replay recibido de <@${userId}>. Esperando revisión.`,
