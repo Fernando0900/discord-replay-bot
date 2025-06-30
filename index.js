@@ -79,7 +79,7 @@ async function startBot() {
       return;
     }
 
-    if (message.content.startsWith('!reset') && message.member?.permissions.has('Administrator')) {
+    if (message.content.startsWith('!replay-reset') && message.member?.permissions.has('Administrator')) {
       const mention = message.mentions.users.first();
       if (!mention) return;
 
