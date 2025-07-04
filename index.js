@@ -20,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "882268783958454272";
+const DIAS_ESPERA = 45;
 
 if (!DISCORD_TOKEN || !CLIENT_ID) {
   console.error("❌ CLIENT_ID o DISCORD_TOKEN no están definidos en el archivo .env");
@@ -69,7 +70,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (commandName === "replay-status") {
       const replay = db.uploads[user.id];
-
       if (!replay) {
         return interaction.reply({
           content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!",
@@ -77,24 +77,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      if (replay.revisado) {
+      const ultimaFecha = new Date(replay.fecha);
+      const ahora = new Date();
+      const diferenciaMs = ahora - ultimaFecha;
+      const diasPasados = diferenciaMs / (1000 * 60 * 60 * 24);
+
+      if (diasPasados >= DIAS_ESPERA) {
         return interaction.reply({
-          content: "✅ Tu replay fue revisado correctamente.",
+          content: "✅ Ya puedes subir un nuevo replay.",
+          ephemeral: true
+        });
+      } else {
+        const restante = DIAS_ESPERA * 24 * 60 * 60 * 1000 - diferenciaMs;
+        const dias = Math.floor(restante / (1000 * 60 * 60 * 24));
+        const horas = Math.floor((restante / (1000 * 60 * 60)) % 24);
+        const minutos = Math.floor((restante / (1000 * 60)) % 60);
+
+        return interaction.reply({
+          content: `⏳ Debes esperar ${dias} días, ${horas} horas y ${minutos} minutos para subir otro replay.`,
           ephemeral: true
         });
       }
-
-      if (replay.ausente) {
-        return interaction.reply({
-          content: "❌ Tu replay no fue revisado porque se te marcó como ausente.",
-          ephemeral: true
-        });
-      }
-
-      return interaction.reply({
-        content: "⏳ Ya subiste un replay. Está pendiente de revisión.",
-        ephemeral: true
-      });
     }
 
     if (commandName === "replay-reset") {
@@ -116,7 +119,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.isButton()) {
     const { customId, user, message } = interaction;
-
     if (user.id !== OWNER_ID) {
       return interaction.reply({
         content: "❌ Solo Skros puede usar estos botones.",
@@ -135,23 +137,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (customId === "revisado") {
       db.uploads[userId].revisado = true;
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
-
       await message.edit({
         content: `✅ Replay de <@${userId}> marcado como revisado.`,
         components: []
       });
-      return;
     }
 
     if (customId === "ausente") {
       db.uploads[userId].ausente = true;
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
-
       await message.edit({
         content: `❌ Replay de <@${userId}> marcado como ausente.`,
         components: []
       });
-      return;
     }
   }
 });
@@ -163,9 +161,17 @@ client.on(Events.MessageCreate, async (message) => {
   const archivo = message.attachments.first();
   if (!archivo.name.endsWith(".SC2Replay")) return;
 
+  const now = new Date();
+  const replayAnterior = db.uploads[message.author.id];
+
+  if (replayAnterior) {
+    const diasTranscurridos = (now - new Date(replayAnterior.fecha)) / (1000 * 60 * 60 * 24);
+    if (diasTranscurridos < DIAS_ESPERA) return;
+  }
+
   db.uploads[message.author.id] = {
     nombre: archivo.name,
-    fecha: new Date().toISOString(),
+    fecha: now.toISOString(),
     revisado: false,
     ausente: false
   };
