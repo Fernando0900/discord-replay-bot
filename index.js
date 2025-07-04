@@ -43,6 +43,7 @@ async function startBot() {
     if (message.author.bot || !message.guild || message.system) return;
     const userId = message.author.id;
     const now = new Date();
+    const limitDaysMs = 45 * 24 * 60 * 60 * 1000;
 
     // !replay-status
     if (message.content === '!replay-status' && message.channel.id === process.env.CANAL_ID) {
@@ -51,19 +52,18 @@ async function startBot() {
       let replyText;
 
       if (!lastUpload) {
-        replyText = '✅ Aún no has subido ningún replay este mes. ¡Puedes enviar uno ahora!';
+        replyText = '✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!';
       } else {
-        const sameMonth = now.getFullYear() === lastUpload.getFullYear() && now.getMonth() === lastUpload.getMonth();
+        const nextUpload = new Date(lastUpload.getTime() + limitDaysMs);
+        const diffMs = nextUpload - now;
 
-        if (!sameMonth) {
-          replyText = '✅ Ya puedes subir un nuevo replay este mes.';
+        if (diffMs <= 0) {
+          replyText = '✅ Ya puedes subir un nuevo replay.';
         } else {
-          const nextUpload = new Date(lastUpload);
-          nextUpload.setMonth(nextUpload.getMonth() + 1);
-          const diffMs = nextUpload - now;
           const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
           const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
           const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
           replyText = `⏳ Podrás subir otro replay en **${diffDays} días, ${diffHours} horas y ${diffMinutes} minutos**.`;
         }
 
@@ -107,22 +107,18 @@ async function startBot() {
 
       const upload = db.data.uploads[userId];
       const lastUpload = upload ? new Date(upload.fecha) : null;
+      const tooSoon = lastUpload && (now - lastUpload) < limitDaysMs;
 
-      const sameMonth = lastUpload &&
-        now.getFullYear() === lastUpload.getFullYear() &&
-        now.getMonth() === lastUpload.getMonth();
-
-      if (sameMonth) {
+      if (tooSoon) {
         await message.delete();
 
-        const nextUpload = new Date(lastUpload);
-        nextUpload.setMonth(nextUpload.getMonth() + 1);
+        const nextUpload = new Date(lastUpload.getTime() + limitDaysMs);
         const diffMs = nextUpload - now;
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
         const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
 
-        const msg = `🚫 Solo puedes subir **1 replay (.SC2Replay)** por mes.\n` +
+        const msg = `🚫 Solo puedes subir **1 replay (.SC2Replay)** cada 45 días.\n` +
           `⏳ Podrás subir otro en **${diffDays} días, ${diffHours} horas y ${diffMinutes} minutos**.`;
 
         try {
@@ -157,7 +153,7 @@ async function startBot() {
         components: [row]
       });
 
-      return; // 🔒 previene duplicación de botones
+      return;
     }
   });
 
