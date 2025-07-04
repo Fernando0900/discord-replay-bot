@@ -10,7 +10,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
-  Events
+  Events,
 } = require("discord.js");
 const express = require("express");
 const fs = require("fs");
@@ -22,9 +22,8 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "882268783958454272";
 
-// Validación temprana de variables de entorno
 if (!DISCORD_TOKEN || !CLIENT_ID) {
-  console.error("❌ CLIENT_ID o DISCORD_TOKEN no están definidos en el archivo .env");
+  console.error("❌ CLIENT_ID o DISCORD_TOKEN no están definidos.");
   process.exit(1);
 }
 
@@ -32,9 +31,9 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
   ],
-  partials: [Partials.Channel]
+  partials: [Partials.Channel],
 });
 
 const commands = [
@@ -43,7 +42,7 @@ const commands = [
     .setDescription("Consulta si puedes subir un nuevo replay."),
   new SlashCommandBuilder()
     .setName("replay-reset")
-    .setDescription("Resetea el contador de replays de un usuario.")
+    .setDescription("Resetea el contador de replays de un usuario."),
 ];
 
 const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
@@ -68,32 +67,41 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.isChatInputCommand()) {
     const { commandName, user } = interaction;
+    const replay = db.uploads[user.id];
 
     if (commandName === "replay-status") {
-      const replay = db.uploads[user.id];
       if (!replay) {
         return interaction.reply({
           content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!",
-          ephemeral: true
-        });
-      } else if (replay.revisado) {
-        return interaction.reply({
-          content: "✅ Ya subiste un replay y fue revisado.",
-          ephemeral: true
-        });
-      } else {
-        return interaction.reply({
-          content: "⏳ Ya subiste un replay. Está pendiente de revisión.",
-          ephemeral: true
+          ephemeral: true,
         });
       }
+
+      if (replay.revisado) {
+        return interaction.reply({
+          content: "✅ Tu replay fue revisado correctamente.",
+          ephemeral: true,
+        });
+      }
+
+      if (replay.ausente) {
+        return interaction.reply({
+          content: "❌ Tu replay no fue revisado porque se te marcó como ausente.",
+          ephemeral: true,
+        });
+      }
+
+      return interaction.reply({
+        content: "⏳ Ya subiste un replay. Está pendiente de revisión.",
+        ephemeral: true,
+      });
     }
 
     if (commandName === "replay-reset") {
       if (user.id !== OWNER_ID && !hasAdminRole) {
         return interaction.reply({
-          content: "❌ Solo el propietario o administradores pueden usar este comando.",
-          ephemeral: true
+          content: "❌ Solo Skros o administradores pueden usar este comando.",
+          ephemeral: true,
         });
       }
 
@@ -101,42 +109,46 @@ client.on(Events.InteractionCreate, async (interaction) => {
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
       return interaction.reply({
         content: "✅ Replay reseteado con éxito.",
-        ephemeral: true
+        ephemeral: true,
       });
     }
   }
 
   if (interaction.isButton()) {
-    const { customId, user } = interaction;
-
-    if (user.id !== OWNER_ID) {
+    if (interaction.user.id !== OWNER_ID) {
       return interaction.reply({
-        content: "❌ Solo el propietario del servidor puede usar estos botones.",
-        ephemeral: true
+        content: "❌ Solo Skros puede usar estos botones.",
+        ephemeral: true,
       });
     }
 
-    const match = db.uploads[user.id];
-    if (!match) {
+    const match = interaction.message.content.match(/<@(\d+)>/);
+    const targetUserId = match?.[1];
+
+    if (!targetUserId || !db.uploads[targetUserId]) {
       return interaction.reply({
-        content: "❌ No hay replay registrado para este usuario.",
-        ephemeral: true
+        content: "❌ No se encontró replay válido para este usuario.",
+        ephemeral: true,
       });
     }
 
-    if (customId === "revisado") {
-      db.uploads[user.id].revisado = true;
+    if (interaction.customId === "revisado") {
+      db.uploads[targetUserId].revisado = true;
+      db.uploads[targetUserId].ausente = false;
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
       return interaction.reply({
-        content: `✅ Replay de <@${user.id}> marcado como revisado.`,
-        ephemeral: true
+        content: `✅ Replay de <@${targetUserId}> marcado como revisado.`,
+        ephemeral: true,
       });
-    } else if (customId === "ausente") {
-      db.uploads[user.id].ausente = true;
+    }
+
+    if (interaction.customId === "ausente") {
+      db.uploads[targetUserId].ausente = true;
+      db.uploads[targetUserId].revisado = false;
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
       return interaction.reply({
-        content: `❌ Replay de <@${user.id}> marcado como ausente.`,
-        ephemeral: true
+        content: `❌ Replay de <@${targetUserId}> marcado como ausente.`,
+        ephemeral: true,
       });
     }
   }
@@ -153,7 +165,7 @@ client.on(Events.MessageCreate, async (message) => {
     nombre: archivo.name,
     fecha: new Date().toISOString(),
     revisado: false,
-    ausente: false
+    ausente: false,
   };
   fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
 
@@ -170,7 +182,7 @@ client.on(Events.MessageCreate, async (message) => {
 
   await message.channel.send({
     content: `📂 Replay recibido de <@${message.author.id}>. Esperando revisión.`,
-    components: [row]
+    components: [row],
   });
 });
 
@@ -178,4 +190,6 @@ client.login(DISCORD_TOKEN);
 
 // Keepalive para Render
 app.get("/", (req, res) => res.send("Bot activo"));
-app.listen(PORT, () => console.log(`🌐 Servidor web activo en puerto ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🌐 Servidor web activo en puerto ${PORT}`)
+);
