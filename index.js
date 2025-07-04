@@ -6,6 +6,9 @@ const {
   REST,
   Routes,
   SlashCommandBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
   Events
 } = require("discord.js");
 const express = require("express");
@@ -17,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "882268783958454272";
+const COOLDOWN_DIAS = 45;
 
 if (!DISCORD_TOKEN || !CLIENT_ID) {
   console.error("❌ CLIENT_ID o DISCORD_TOKEN no están definidos en el archivo .env");
@@ -56,11 +60,14 @@ client.once("ready", () => {
   console.log(`🤖 Bot conectado como ${client.user.tag}`);
 });
 
-function msToTime(duration) {
-  const minutes = Math.floor((duration / (1000 * 60)) % 60);
-  const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
-  const days = Math.floor(duration / (1000 * 60 * 60 * 24));
-  return `${days} días, ${hours} horas y ${minutes} minutos`;
+function getTiempoRestante(fecha) {
+  const ahora = new Date();
+  const anterior = new Date(fecha);
+  const msRestantes = anterior.getTime() + COOLDOWN_DIAS * 86400000 - ahora.getTime();
+  const dias = Math.floor(msRestantes / 86400000);
+  const horas = Math.floor((msRestantes % 86400000) / 3600000);
+  const minutos = Math.floor((msRestantes % 3600000) / 60000);
+  return { dias, horas, minutos };
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -81,13 +88,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      const timePassed = Date.now() - new Date(replay.fecha).getTime();
-      const cooldown = 45 * 24 * 60 * 60 * 1000;
-
-      if (timePassed < cooldown) {
-        const restante = msToTime(cooldown - timePassed);
+      const tiempo = getTiempoRestante(replay.fecha);
+      if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
         return interaction.reply({
-          content: `⏳ Debes esperar ${restante} para subir otro replay.`,
+          content: `⏳ <@${user.id}> aún no puedes subir otro replay. Espera ${tiempo.dias} días, ${tiempo.horas} horas y ${tiempo.minutos} minutos.`,
           flags: 64
         });
       }
@@ -129,7 +133,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  if (interaction.isMessageComponent()) {
+  if (interaction.isButton()) {
     const { customId, user, message } = interaction;
 
     if (user.id !== OWNER_ID) {
@@ -147,19 +151,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
 
+    const replayMsg = await message.channel.messages.fetch(db.uploads[userId].mensajeReplayId);
+
     if (customId === "revisado") {
       db.uploads[userId].revisado = true;
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
-      await message.react("✅");
-      await message.delete();
+      await replayMsg.react("✅");
     }
 
     if (customId === "ausente") {
       db.uploads[userId].ausente = true;
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
-      await message.react("❌");
-      await message.delete();
+      await replayMsg.react("❌");
     }
+
+    await message.delete(); // Eliminar los botones
   }
 });
 
@@ -170,16 +176,14 @@ client.on(Events.MessageCreate, async (message) => {
   const archivo = message.attachments.first();
   if (!archivo.name.endsWith(".SC2Replay")) return;
 
-  const replayAnterior = db.uploads[message.author.id];
-  if (replayAnterior) {
-    const tiempoPasado = Date.now() - new Date(replayAnterior.fecha).getTime();
-    const cooldown = 45 * 24 * 60 * 60 * 1000;
-    if (tiempoPasado < cooldown) {
-      const restante = msToTime(cooldown - tiempoPasado);
+  const anterior = db.uploads[message.author.id];
+  if (anterior) {
+    const tiempo = getTiempoRestante(anterior.fecha);
+    if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
       await message.delete();
       return message.channel.send({
-        content: `⏳ <@${message.author.id}> aún no puedes subir otro replay. Espera ${restante}.`,
-        ephemeral: true
+        content: `⏳ <@${message.author.id}> aún no puedes subir otro replay. Espera ${tiempo.dias} días, ${tiempo.horas} horas y ${tiempo.minutos} minutos.`,
+        flags: 64
       });
     }
   }
@@ -188,27 +192,21 @@ client.on(Events.MessageCreate, async (message) => {
     nombre: archivo.name,
     fecha: new Date().toISOString(),
     revisado: false,
-    ausente: false
+    ausente: false,
+    mensajeReplayId: message.id
   };
   fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
 
-  const row = {
-    type: 1,
-    components: [
-      {
-        type: 2,
-        style: 3,
-        label: "Revisado",
-        custom_id: "revisado"
-      },
-      {
-        type: 2,
-        style: 4,
-        label: "Ausente",
-        custom_id: "ausente"
-      }
-    ]
-  };
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("revisado")
+      .setLabel("Revisado")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("ausente")
+      .setLabel("Ausente")
+      .setStyle(ButtonStyle.Danger)
+  );
 
   await message.channel.send({
     content: `📂 Replay recibido de <@${message.author.id}>. Esperando revisión.`,
@@ -218,6 +216,5 @@ client.on(Events.MessageCreate, async (message) => {
 
 client.login(DISCORD_TOKEN);
 
-// Keepalive para Render
 app.get("/", (req, res) => res.send("Bot activo"));
 app.listen(PORT, () => console.log(`🌐 Servidor web activo en puerto ${PORT}`));
