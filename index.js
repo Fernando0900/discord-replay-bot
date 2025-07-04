@@ -140,8 +140,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         content: `✅ Replay de <@${userId}> marcado como revisado.`,
         components: []
       });
-
-      return interaction.reply({ content: "Replay marcado como revisado. ✅", ephemeral: true });
+      return;
     }
 
     if (customId === "ausente") {
@@ -152,8 +151,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         content: `❌ Replay de <@${userId}> marcado como ausente.`,
         components: []
       });
-
-      return interaction.reply({ content: "Replay marcado como ausente. ❌", ephemeral: true });
+      return;
     }
   }
 });
