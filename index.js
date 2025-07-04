@@ -1,3 +1,4 @@
+// Versión actualizada de index.js sin mensajes por DM
 require('dotenv').config();
 
 const express = require('express');
@@ -72,12 +73,7 @@ async function startBot() {
           : '\n🕒 Aún no ha sido revisado.';
       }
 
-      try {
-        await message.author.send(replyText);
-      } catch {
-        await message.reply({ content: replyText, ephemeral: true });
-      }
-
+      await message.reply({ content: replyText, ephemeral: true });
       await message.delete();
       return;
     }
@@ -90,12 +86,7 @@ async function startBot() {
       delete db.data.uploads[mention.id];
       await db.write();
 
-      try {
-        await mention.send('🔄 Tu contador ha sido **reseteado por un administrador**. Ya puedes volver a subir un replay.');
-      } catch {
-        await message.reply({ content: `❗ No se pudo enviar DM a ${mention.tag}`, ephemeral: true });
-      }
-
+      await message.reply({ content: `🔄 Replay de ${mention.tag} ha sido reseteado. Ya puede subir uno nuevo.`, ephemeral: true });
       await message.delete();
       return;
     }
@@ -121,12 +112,7 @@ async function startBot() {
         const msg = `🚫 Solo puedes subir **1 replay (.SC2Replay)** cada 45 días.\n` +
           `⏳ Podrás subir otro en **${diffDays} días, ${diffHours} horas y ${diffMinutes} minutos**.`;
 
-        try {
-          await message.author.send(msg);
-        } catch {
-          await message.reply({ content: msg, ephemeral: true });
-        }
-
+        await message.reply({ content: msg, ephemeral: true });
         return;
       }
 
@@ -184,13 +170,6 @@ async function startBot() {
       if (db.data.uploads[targetId]) {
         db.data.uploads[targetId].revisado = false;
         await db.write();
-
-        try {
-          const user = await client.users.fetch(targetId);
-          await user.send('📭 Tu replay fue marcado como **ausente**. No estuviste presente cuando se iba a revisar.');
-        } catch {
-          console.warn(`❗ No se pudo enviar DM a ${targetId}`);
-        }
 
         await interaction.update({
           content: `❌ Replay de <@${targetId}> **marcado como ausente por Skros**.`,
