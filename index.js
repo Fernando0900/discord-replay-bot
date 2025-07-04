@@ -19,7 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const OWNER_ID = "360974094457503744";
+const OWNER_ID = "882268783958454272";
 const COOLDOWN_DIAS = 45;
 
 if (!DISCORD_TOKEN || !CLIENT_ID) {
