@@ -1,185 +1,165 @@
-// Versión actualizada de index.js sin mensajes por DM
-require('dotenv').config();
-
-const express = require('express');
-const { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } = require('discord.js');
-const { Low } = require('lowdb');
-const { JSONFile } = require('lowdb/node');
-
-const adapter = new JSONFile('db.json');
-const db = new Low(adapter, { uploads: {} });
+// index.js
+require("dotenv").config();
+const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, Events } = require("discord.js");
+const express = require("express");
+const fs = require("fs");
+const db = require("./db.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-  res.send('Bot is alive!');
-});
-
-app.listen(PORT, () => {
-  console.log(`🌐 Servidor Express en línea en http://localhost:${PORT}`);
-});
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const CANAL_ID = process.env.CANAL_ID;
+const OWNER_ID = "882268783958454272";
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.GuildMessageReactions
   ],
-  partials: [Partials.Channel]
+  partials: [Partials.Channel],
 });
 
-async function startBot() {
-  await db.read();
-  db.data ||= { uploads: {} };
-  await db.write();
+const commands = [
+  new SlashCommandBuilder()
+    .setName("replay-status")
+    .setDescription("Consulta si puedes subir un nuevo replay."),
+  new SlashCommandBuilder()
+    .setName("replay-reset")
+    .setDescription("Resetea el contador de replays de un usuario."),
+];
 
-  client.once('ready', () => {
-    console.log(`✅ Bot conectado como ${client.user.tag}`);
-  });
+const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
 
-  client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild || message.system) return;
-    const userId = message.author.id;
-    const now = new Date();
-    const limitDaysMs = 45 * 24 * 60 * 60 * 1000;
+(async () => {
+  try {
+    await rest.put(Routes.applicationCommands(CLIENT_ID), {
+      body: commands,
+    });
+    console.log("✅ Comandos registrados con éxito.");
+  } catch (error) {
+    console.error("❌ Error al registrar comandos:", error);
+  }
+})();
 
-    // !replay-status
-    if (message.content === '!replay-status' && message.channel.id === process.env.CANAL_ID) {
-      const upload = db.data.uploads[userId];
-      const lastUpload = upload ? new Date(upload.fecha) : null;
-      let replyText;
+client.once("ready", () => {
+  console.log(`🤖 Bot conectado como ${client.user.tag}`);
+});
 
-      if (!lastUpload) {
-        replyText = '✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!';
+client.on(Events.InteractionCreate, async (interaction) => {
+  const hasAdminRole = interaction.member?.roles?.cache?.some((role) =>
+    ["Admin", "Fundador"].includes(role.name)
+  );
+
+  if (interaction.isChatInputCommand()) {
+    const { commandName, user } = interaction;
+
+    if (commandName === "replay-status") {
+      const replay = db.data.uploads[user.id];
+      if (!replay) {
+        await interaction.reply({
+          content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!",
+          ephemeral: true,
+        });
+      } else if (replay.revisado) {
+        await interaction.reply({
+          content: "✅ Ya subiste un replay y fue revisado.",
+          ephemeral: true,
+        });
       } else {
-        const nextUpload = new Date(lastUpload.getTime() + limitDaysMs);
-        const diffMs = nextUpload - now;
-
-        if (diffMs <= 0) {
-          replyText = '✅ Ya puedes subir un nuevo replay.';
-        } else {
-          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
-          const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
-
-          replyText = `⏳ Podrás subir otro replay en **${diffDays} días, ${diffHours} horas y ${diffMinutes} minutos**.`;
-        }
-
-        replyText += upload?.revisado
-          ? '\n✅ Tu replay ya fue **revisado**.'
-          : '\n🕒 Aún no ha sido revisado.';
+        await interaction.reply({
+          content: "⏳ Ya subiste un replay. Está pendiente de revisión.",
+          ephemeral: true,
+        });
       }
-
-      await message.reply({ content: replyText, ephemeral: true });
-      await message.delete();
-      return;
     }
 
-    // !replay-reset @usuario (solo admins)
-    if (message.content.startsWith('!replay-reset') && message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      const mention = message.mentions.users.first();
-      if (!mention) return;
-
-      delete db.data.uploads[mention.id];
-      await db.write();
-
-      await message.reply({ content: `🔄 Replay de ${mention.tag} ha sido reseteado. Ya puede subir uno nuevo.`, ephemeral: true });
-      await message.delete();
-      return;
-    }
-
-    // Subida de replay
-    if (message.channel.id === process.env.CANAL_ID) {
-      const file = message.attachments.first();
-      if (!file || !file.name.endsWith('.SC2Replay')) return;
-
-      const upload = db.data.uploads[userId];
-      const lastUpload = upload ? new Date(upload.fecha) : null;
-      const tooSoon = lastUpload && (now - lastUpload) < limitDaysMs;
-
-      if (tooSoon) {
-        await message.delete();
-
-        const nextUpload = new Date(lastUpload.getTime() + limitDaysMs);
-        const diffMs = nextUpload - now;
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
-        const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
-
-        const msg = `🚫 Solo puedes subir **1 replay (.SC2Replay)** cada 45 días.\n` +
-          `⏳ Podrás subir otro en **${diffDays} días, ${diffHours} horas y ${diffMinutes} minutos**.`;
-
-        await message.reply({ content: msg, ephemeral: true });
-        return;
+    if (commandName === "replay-reset") {
+      if (user.id !== OWNER_ID && !hasAdminRole) {
+        return interaction.reply({
+          content: "❌ Solo el propietario o administradores pueden usar este comando.",
+          ephemeral: true,
+        });
       }
-
-      // Se permite la subida
-      db.data.uploads[userId] = {
-        fecha: now.toISOString(),
-        revisado: false
-      };
-      await db.write();
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`revisar_${userId}`)
-          .setLabel('✅ Revisado')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`ausente_${userId}`)
-          .setLabel('❌ Ausente')
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      await message.reply({
-        content: `🎮 Replay recibido de <@${userId}>. Esperando revisión.`,
-        components: [row]
+      db.data.uploads[user.id] = null;
+      fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
+      await interaction.reply({
+        content: "✅ Replay reseteado con éxito.",
+        ephemeral: true,
       });
-
-      return;
     }
+  }
+
+  if (interaction.isButton()) {
+    const { customId, user } = interaction;
+    if (user.id !== OWNER_ID) {
+      return interaction.reply({
+        content: "❌ Solo el propietario del servidor puede usar estos botones.",
+        ephemeral: true,
+      });
+    }
+
+    const match = db.data.uploads[user.id];
+    if (!match) {
+      return interaction.reply({
+        content: "❌ No hay replay registrado para este usuario.",
+        ephemeral: true,
+      });
+    }
+
+    if (customId === "revisado") {
+      db.data.uploads[user.id].revisado = true;
+      fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
+      await interaction.reply({
+        content: `✅ Replay de <@${user.id}> marcado como revisado.`,
+        ephemeral: true,
+      });
+    } else if (customId === "ausente") {
+      db.data.uploads[user.id].ausente = true;
+      fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
+      await interaction.reply({
+        content: `❌ Replay de <@${user.id}> marcado como ausente.`,
+        ephemeral: true,
+      });
+    }
+  }
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+  if (!message.attachments.size) return;
+
+  const archivo = message.attachments.first();
+  if (!archivo.name.endsWith(".SC2Replay")) return;
+
+  db.data.uploads[message.author.id] = {
+    nombre: archivo.name,
+    fecha: new Date().toISOString(),
+    revisado: false,
+    ausente: false,
+  };
+  fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("revisado")
+      .setLabel("Revisado")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("ausente")
+      .setLabel("Ausente")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  await message.channel.send({
+    content: `📂 Replay recibido de <@${message.author.id}>. Esperando revisión.`,
+    components: [row],
   });
+});
 
-  // Botones de revisión
-  client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
+client.login(DISCORD_TOKEN);
 
-    const ownerId = '882268783958454272';
-    const [action, targetId] = interaction.customId.split('_');
-
-    if (interaction.user.id !== ownerId) {
-      return interaction.reply({ content: '❌ Solo Skros puede usar este botón.', ephemeral: true });
-    }
-
-    if (action === 'revisar') {
-      if (db.data.uploads[targetId]) {
-        db.data.uploads[targetId].revisado = true;
-        await db.write();
-
-        await interaction.update({
-          content: `✅ Replay de <@${targetId}> **revisado por Skros**.`,
-          components: []
-        });
-      }
-    }
-
-    if (action === 'ausente') {
-      if (db.data.uploads[targetId]) {
-        db.data.uploads[targetId].revisado = false;
-        await db.write();
-
-        await interaction.update({
-          content: `❌ Replay de <@${targetId}> **marcado como ausente por Skros**.`,
-          components: []
-        });
-      }
-    }
-  });
-
-  client.login(process.env.DISCORD_TOKEN);
-}
-
-startBot();
+// Keepalive
+app.get("/", (req, res) => res.send("Bot activo"));
+app.listen(PORT, () => console.log(`Servidor web activo en puerto ${PORT}`));
