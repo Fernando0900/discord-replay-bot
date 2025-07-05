@@ -60,26 +60,24 @@ client.once("ready", () => {
   console.log(`🤖 Bot conectado como ${client.user.tag}`);
 
   const estados = [
-    { name: "🟢 Bot Activo", type: 0 },             // Playing
-    { name: "📂 Esperando replays", type: 3 },      // Watching
-    { name: "⏱️ En línea las 24h", type: 2 },       // Listening
-    { name: "✅ Revisando replays", type: 3 }       // Watching
+    "🟢 Bot Activo",
+    "📂 Esperando replays",
+    "⏱️ En línea las 24h",
+    "✅ Revisando replays"
   ];
 
   let estadoActual = 0;
 
   const actualizarEstado = () => {
-    const estado = estados[estadoActual % estados.length];
-    client.user.setPresence({
-      status: "online",
-      activities: [estado]
-    });
+    const nombre = estados[estadoActual % estados.length];
+    client.user.setActivity(nombre);
     estadoActual++;
   };
 
   actualizarEstado(); // Estado inicial
   setInterval(actualizarEstado, 2 * 60 * 1000); // Cada 2 minutos
 });
+
 
 
 function getTiempoRestante(fecha) {
