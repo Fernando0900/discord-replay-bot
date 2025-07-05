@@ -166,10 +166,7 @@ client.on(Events.MessageCreate, async (message) => {
     const tiempo = getTiempoRestante(anterior.fecha);
     if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
       await message.delete();
-    return interaction.reply({ 
-      content: `⏳ <@${user.id}>, debes esperar ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min antes de subir otro replay.`, 
-      flags: 64 
-    });
+      return message.channel.send({ content: `⏳ <@${message.author.id}> faltan ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min para que puedas subir otro replay.` });
 
     }
   }
