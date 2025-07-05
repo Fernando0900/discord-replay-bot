@@ -84,7 +84,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!replay) {
         return interaction.reply({
           content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!",
-          ephemeral: true
+          flags: 64
         });
       }
 
@@ -92,27 +92,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
         return interaction.reply({
           content: `⏳ <@${user.id}> aún no puedes subir otro replay. Espera ${tiempo.dias} días, ${tiempo.horas} horas y ${tiempo.minutos} minutos.`,
-          ephemeral: true
+          flags: 64
         });
       }
 
       if (replay.revisado) {
         return interaction.reply({
           content: "✅ Tu replay fue revisado correctamente.",
-          ephemeral: true
+          flags: 64
         });
       }
 
       if (replay.ausente) {
         return interaction.reply({
           content: "❌ Tu replay no fue revisado porque se te marcó como ausente.",
-          ephemeral: true
+          flags: 64
         });
       }
 
       return interaction.reply({
         content: "⏳ Ya subiste un replay. Está pendiente de revisión.",
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -120,7 +120,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (user.id !== OWNER_ID && !hasAdminRole) {
         return interaction.reply({
           content: "❌ Solo el propietario o administradores pueden usar este comando.",
-          ephemeral: true
+          flags: 64
         });
       }
 
@@ -128,7 +128,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       fs.writeFileSync("./db.json", JSON.stringify(db, null, 2));
       return interaction.reply({
         content: "✅ Replay reseteado con éxito.",
-        ephemeral: true
+        flags: 64
       });
     }
   }
@@ -139,7 +139,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (user.id !== OWNER_ID) {
       return interaction.reply({
         content: "❌ Solo Skros puede usar estos botones.",
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -147,7 +147,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!userId || !db.uploads[userId]) {
       return interaction.reply({
         content: "❌ No se encontró replay válido para este usuario.",
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -187,7 +187,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       return interaction.reply({
         content: "⚠️ Los botones anteriores expiraron. Se han regenerado.",
-        ephemeral: true
+        flags: 64
       });
     }
 
