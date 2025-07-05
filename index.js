@@ -21,12 +21,14 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "882268783958454272";
 const COOLDOWN_DIAS = 45;
 
+const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false // necesario para Render
   }
 });
+
 
 if (!DISCORD_TOKEN || !CLIENT_ID) {
   console.error("❌ CLIENT_ID o DISCORD_TOKEN no están definidos en el archivo .env");
