@@ -91,25 +91,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.isChatInputCommand()) {
     const { commandName, user } = interaction;
-    if (commandName === "replay-status") {
-      const { rows } = await pool.query("SELECT * FROM uploads WHERE user_id = $1", [user.id]);
-      const replay = rows[0];
-      if (!replay) {
-        return interaction.reply({ content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!", flags: 64 });
-      }
-      const tiempo = getTiempoRestante(replay.fecha);
-      if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
-        
-      return interaction.reply({ 
-        content: `⏳ <@${user.id}>, debes esperar ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min antes de subir otro replay.`, 
-        flags: 64 
-      });
 
-      }
-      if (replay.revisado) return interaction.reply({ content: "✅ Tu replay fue revisado correctamente.", flags: 64 });
-      if (replay.ausente) return interaction.reply({ content: "❌ Tu replay fue marcado como ausente.", flags: 64 });
-      return interaction.reply({ content: "⏳ Replay pendiente de revisión.", flags: 64 });
-    }
+    if (commandName === "replay-status") {
+  await interaction.deferReply({ ephemeral: true });
+
+  const { rows } = await pool.query("SELECT * FROM uploads WHERE user_id = $1", [user.id]);
+  const replay = rows[0];
+
+  if (!replay) {
+    return interaction.editReply({ content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!" });
+  }
+
+  const tiempo = getTiempoRestante(replay.fecha);
+  if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
+    return interaction.editReply({
+      content: `⏳ <@${user.id}> faltan ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min para que puedas subir otro replay`
+    });
+  }
+
+  if (replay.revisado) {
+    return interaction.editReply({ content: "✅ Tu replay fue revisado correctamente." });
+  }
+
+  if (replay.ausente) {
+    return interaction.editReply({ content: "❌ Tu replay fue marcado como ausente." });
+  }
+
+  return interaction.editReply({ content: "⏳ Replay pendiente de revisión." });
+}
+
 
     if (commandName === "replay-reset") {
       if (user.id !== OWNER_ID && !hasAdminRole) return interaction.reply({ content: "❌ No autorizado.", flags: 64 });
