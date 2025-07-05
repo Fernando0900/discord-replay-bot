@@ -92,7 +92,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const { commandName, user } = interaction;
 
       if (commandName === "replay-status") {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
         const { rows } = await pool.query("SELECT * FROM uploads WHERE user_id = $1", [user.id]);
         const replay = rows[0];
 
