@@ -78,7 +78,7 @@ client.once("ready", () => {
   };
 
   actualizarEstado(); // Estado inicial
-  setInterval(actualizarEstado, 2 * 60 * 1000); // Cada 2 minutos
+  setInterval(actualizarEstado, 5 * 60 * 1000); // Cada 5 minutos
 });
 
 
