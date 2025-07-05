@@ -99,7 +99,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       const tiempo = getTiempoRestante(replay.fecha);
       if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
-        return interaction.reply({ content: `⏳ <@${user.id}> espera ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min.`, flags: 64 });
+        
+      return interaction.reply({ 
+        content: `⏳ <@${user.id}>, debes esperar ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min antes de subir otro replay.`, 
+        flags: 64 
+      });
+
       }
       if (replay.revisado) return interaction.reply({ content: "✅ Tu replay fue revisado correctamente.", flags: 64 });
       if (replay.ausente) return interaction.reply({ content: "❌ Tu replay fue marcado como ausente.", flags: 64 });
@@ -161,7 +166,11 @@ client.on(Events.MessageCreate, async (message) => {
     const tiempo = getTiempoRestante(anterior.fecha);
     if (tiempo.dias > 0 || tiempo.horas > 0 || tiempo.minutos > 0) {
       await message.delete();
-      return message.channel.send({ content: `⏳ <@${message.author.id}> espera ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min.` });
+    return interaction.reply({ 
+      content: `⏳ <@${user.id}>, debes esperar ${tiempo.dias}d ${tiempo.horas}h ${tiempo.minutos}min antes de subir otro replay.`, 
+      flags: 64 
+    });
+
     }
   }
 
