@@ -18,7 +18,8 @@ const PORT = process.env.PORT || 3000;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "360974094457503744";
-const COOLDOWN_DIAS = 45;
+const COOLDOWN_DIAS = 60; // 🔁 Aumentado a 60 días
+const CHANNEL_REPLAYS = "1337263116756582473"; // 🔁 Canal restringido
 
 const { Pool } = require("pg");
 const pool = new Pool({
@@ -89,6 +90,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const hasAdminRole = interaction.member?.roles?.cache?.some((role) => ["Admin", "Fundador"].includes(role.name));
 
     if (interaction.isChatInputCommand()) {
+      // 🔁 Verificación de canal
+      if (interaction.channelId !== CHANNEL_REPLAYS) {
+        return interaction.reply({ content: "❌ Este comando solo se puede usar en el canal <#1337263116756582473>.", flags: 64 });
+      }
+
       const { commandName, user } = interaction;
 
       if (commandName === "replay-status") {
@@ -157,6 +163,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || !message.attachments.size) return;
+  if (message.channelId !== CHANNEL_REPLAYS) return; // 🔁 Solo en canal SC2Replays
+
   const archivo = message.attachments.first();
   if (!archivo.name.endsWith(".SC2Replay")) return;
 
