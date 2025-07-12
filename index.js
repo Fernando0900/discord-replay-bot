@@ -19,7 +19,7 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "360974094457503744";
 const COOLDOWN_DIAS = 60; // 🔁 Aumentado a 60 días
-const CHANNEL_REPLAYS = "1337263116756582473"; // 🔁 Canal restringido
+const CHANNEL_REPLAYS = "1389033193063321680"; // 🔁 Canal restringido
 
 const { Pool } = require("pg");
 const pool = new Pool({
