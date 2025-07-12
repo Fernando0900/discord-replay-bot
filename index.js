@@ -92,7 +92,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       // 🔁 Verificación de canal
       if (interaction.channelId !== CHANNEL_REPLAYS) {
-        return interaction.reply({ content: "❌ Este comando solo se puede usar en el canal <#1337263116756582473>.", flags: 64 });
+        return interaction.reply({ content: "❌ Este comando solo se puede usar en el canal <#1389033193063321680>.", flags: 64 });
       }
 
       const { commandName, user } = interaction;
