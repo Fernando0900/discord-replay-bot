@@ -12,19 +12,19 @@ const {
   Events
 } = require("discord.js");
 const express = require("express");
+const { createClient } = require("@libsql/client");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "360974094457503744";
-const COOLDOWN_DIAS = 60; // 🔁 Aumentado a 60 días
-const CHANNEL_REPLAYS = "1389033193063321680"; // 🔁 Canal restringido
+const COOLDOWN_DIAS = 60;
+const CHANNEL_REPLAYS = "1389033193063321680";
 
-const { Pool } = require("pg");
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+const pool = createClient({
+  url: process.env.DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN
 });
 
 if (!DISCORD_TOKEN || !CLIENT_ID) {
@@ -88,9 +88,7 @@ function getTiempoRestante(fecha) {
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const hasAdminRole = interaction.member?.roles?.cache?.some((role) => ["Admin", "Fundador"].includes(role.name));
-
     if (interaction.isChatInputCommand()) {
-      // 🔁 Verificación de canal
       if (interaction.channelId !== CHANNEL_REPLAYS) {
         return interaction.reply({ content: "❌ Este comando solo se puede usar en el canal <#1389033193063321680>.", flags: 64 });
       }
@@ -99,8 +97,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (commandName === "replay-status") {
         await interaction.deferReply({ flags: 64 });
-        const { rows } = await pool.query("SELECT * FROM uploads WHERE user_id = $1", [user.id]);
-        const replay = rows[0];
+        const result = await pool.execute({
+          sql: "SELECT * FROM uploads WHERE user_id = ?",
+          args: [user.id],
+        });
+        const replay = result.rows[0];
 
         if (!replay) return interaction.editReply({ content: "✅ Aún no has subido ningún replay. ¡Puedes enviar uno ahora!" });
 
@@ -116,7 +117,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (commandName === "replay-reset") {
         if (user.id !== OWNER_ID && !hasAdminRole) return interaction.reply({ content: "❌ No autorizado.", flags: 64 });
-        await pool.query("DELETE FROM uploads WHERE user_id = $1", [user.id]);
+        await pool.execute({ sql: "DELETE FROM uploads WHERE user_id = ?", args: [user.id] });
         return interaction.reply({ content: "✅ Replay reseteado.", flags: 64 });
       }
     }
@@ -126,17 +127,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (user.id !== OWNER_ID) return interaction.reply({ content: "❌ Solo Skros puede usar estos botones.", flags: 64 });
 
       const userId = message.content.match(/<@(\d+)>/)?.[1];
-      const { rows } = await pool.query("SELECT * FROM uploads WHERE user_id = $1", [userId]);
-      const replay = rows[0];
+      const result = await pool.execute({ sql: "SELECT * FROM uploads WHERE user_id = ?", args: [userId] });
+      const replay = result.rows[0];
       if (!replay) return interaction.reply({ content: "❌ Replay no encontrado.", flags: 64 });
 
       try {
         const replayMsg = await message.channel.messages.fetch(replay.mensaje_replay_id);
         if (customId === "revisado") {
-          await pool.query("UPDATE uploads SET revisado = TRUE WHERE user_id = $1", [userId]);
+          await pool.execute({ sql: "UPDATE uploads SET revisado = TRUE WHERE user_id = ?", args: [userId] });
           await replayMsg.react("✅");
         } else if (customId === "ausente") {
-          await pool.query("UPDATE uploads SET ausente = TRUE WHERE user_id = $1", [userId]);
+          await pool.execute({ sql: "UPDATE uploads SET ausente = TRUE WHERE user_id = ?", args: [userId] });
           await replayMsg.react("❌");
         }
 
@@ -150,7 +151,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new ButtonBuilder().setCustomId("ausente").setLabel("Ausente").setStyle(ButtonStyle.Danger)
         );
         const nuevoMsg = await message.channel.send({ content: `📂 Replay recibido de <@${userId}>. Esperando revisión.`, components: [row] });
-        await pool.query("UPDATE uploads SET mensaje_botones_id = $1 WHERE user_id = $2", [nuevoMsg.id, userId]);
+        await pool.execute({ sql: "UPDATE uploads SET mensaje_botones_id = ? WHERE user_id = ?", args: [nuevoMsg.id, userId] });
         return interaction.reply({ content: "⚠️ Botones regenerados.", flags: 64 });
       }
 
@@ -163,14 +164,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || !message.attachments.size) return;
-  if (message.channelId !== CHANNEL_REPLAYS) return; // 🔁 Solo en canal SC2Replays
+  if (message.channelId !== CHANNEL_REPLAYS) return;
 
   const archivo = message.attachments.first();
   if (!archivo.name.endsWith(".SC2Replay")) return;
 
   try {
-    const { rows } = await pool.query("SELECT * FROM uploads WHERE user_id = $1", [message.author.id]);
-    const anterior = rows[0];
+    const result = await pool.execute({ sql: "SELECT * FROM uploads WHERE user_id = ?", args: [message.author.id] });
+    const anterior = result.rows[0];
 
     if (anterior) {
       const tiempo = getTiempoRestante(anterior.fecha);
@@ -187,13 +188,12 @@ client.on(Events.MessageCreate, async (message) => {
 
     const botonesMsg = await message.channel.send({ content: `📂 Replay recibido de <@${message.author.id}>. Esperando revisión.`, components: [row] });
 
-    await pool.query(
-      `INSERT INTO uploads (user_id, nombre, fecha, revisado, ausente, mensaje_replay_id, mensaje_botones_id)
-       VALUES ($1, $2, $3, FALSE, FALSE, $4, $5)
-       ON CONFLICT (user_id)
-       DO UPDATE SET nombre = EXCLUDED.nombre, fecha = EXCLUDED.fecha, revisado = FALSE, ausente = FALSE, mensaje_replay_id = EXCLUDED.mensaje_replay_id, mensaje_botones_id = EXCLUDED.mensaje_botones_id`,
-      [message.author.id, archivo.name, new Date().toISOString(), message.id, botonesMsg.id]
-    );
+    await pool.execute({
+      sql: `INSERT INTO uploads (user_id, nombre, fecha, revisado, ausente, mensaje_replay_id, mensaje_botones_id)
+            VALUES (?, ?, ?, FALSE, FALSE, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET nombre = excluded.nombre, fecha = excluded.fecha, revisado = FALSE, ausente = FALSE, mensaje_replay_id = excluded.mensaje_replay_id, mensaje_botones_id = excluded.mensaje_botones_id`,
+      args: [message.author.id, archivo.name, new Date().toISOString(), message.id, botonesMsg.id]
+    });
   } catch (err) {
     console.error("❌ Error en MessageCreate:", err);
   }
