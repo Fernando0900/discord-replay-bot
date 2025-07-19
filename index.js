@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "360974094457503744";
-const COOLDOWN_DIAS = 60;
+const COOLDOWN_DIAS = 45;
 const CHANNEL_REPLAYS = "1389033193063321680";
 
 const pool = createClient({
