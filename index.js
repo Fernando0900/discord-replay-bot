@@ -20,7 +20,11 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const OWNER_ID = "360974094457503744";
 const COOLDOWN_DIAS = 45;
-const CHANNEL_REPLAYS = "1389033193063321680";
+const CHANNEL_REPLAYS = 
+const BOT_ALLOW_CHANNELS =  [
+  "1389033193063321680",
+  "1362639865446924308",
+];
 
 const pool = createClient({
   url: process.env.DATABASE_URL,
@@ -89,7 +93,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const hasAdminRole = interaction.member?.roles?.cache?.some((role) => ["Admin", "Fundador"].includes(role.name));
     if (interaction.isChatInputCommand()) {
-      if (interaction.channelId !== CHANNEL_REPLAYS) {
+      if (!BOT_ALLOW_CHANNELS.includes(interaction.channelId)) {
         return interaction.reply({ content: "❌ Este comando solo se puede usar en el canal <#1389033193063321680>.", flags: 64 });
       }
 
