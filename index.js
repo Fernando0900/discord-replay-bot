@@ -167,7 +167,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || !message.attachments.size) return;
-  if (message.channelId !== CHANNEL_REPLAYS) return;
+  if (!BOT_ALLOW_CHANNELS.includes(message.channelId)) return;
 
   const archivo = message.attachments.first();
   if (!archivo.name.endsWith(".SC2Replay")) return;
