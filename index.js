@@ -82,7 +82,9 @@ client.once("ready", () => {
   ];
   let i = 0;
   const actualizar = () => {
-    client.user.setPresence({ status: "online", activities: [estados[i % estados.length]] });
+    const estado = i % estados.length;
+    client.user.setPresence({ status: "online", activities: [estados[estado]] });
+    console.log(`Status actualizado a ${estado}`);
     i++;
   };
   actualizar();
